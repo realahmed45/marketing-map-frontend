@@ -32,6 +32,17 @@ export default function MapPage() {
     setMenu({ station, line, x: e.clientX + 4, y: e.clientY + 4 });
   }
 
+  /** Dropped after dragging a station along its line — renumber it there. */
+  async function onStationMove({ shopId, streetId, beforeId, afterId }) {
+    if (!beforeId && !afterId) return; // nothing to sit between
+    try {
+      await put(`/shops/${shopId}/reorder`, { street: streetId, beforeId, afterId });
+      load();
+    } catch (e) {
+      notify(e.message, 'error');
+    }
+  }
+
   async function handleAction(key) {
     const { station, line } = menu;
     setMenu(null);
@@ -52,6 +63,24 @@ export default function MapPage() {
       try {
         await put(`/shops/${station._id}`, { atStreetEnd: !station.atStreetEnd });
         notify(station.atStreetEnd ? 'No longer a street ending' : 'Marked as street ending');
+        load();
+      } catch (e) {
+        notify(e.message, 'error');
+      }
+      return;
+    }
+
+    if (key === 'continue-left' || key === 'continue-right') {
+      const dir = key === 'continue-left' ? 'left' : 'right';
+      const cur = station.continues || 'none';
+      // Toggle just this direction, keeping whatever the other one was.
+      const has = (d) => cur === d || cur === 'both';
+      const next = { left: has('left'), right: has('right'), [dir]: !has(dir) };
+      const value =
+        next.left && next.right ? 'both' : next.left ? 'left' : next.right ? 'right' : 'none';
+      try {
+        await put(`/shops/${station._id}/continues`, { street: line._id, continues: value });
+        notify(has(dir) ? 'Street no longer continues' : 'Street continues past this shop');
         load();
       } catch (e) {
         notify(e.message, 'error');
@@ -106,7 +135,12 @@ export default function MapPage() {
           or add a shop beside it.
         </p>
 
-        <MapCanvas data={data} selectedId={selected?._id} onSelect={onStationClick} />
+        <MapCanvas
+          data={data}
+          selectedId={selected?._id}
+          onSelect={onStationClick}
+          onMove={onStationMove}
+        />
 
         <div className="row map-legend">
           <span className="row" style={{ gap: 6 }}>

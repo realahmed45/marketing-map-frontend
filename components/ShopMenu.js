@@ -6,6 +6,12 @@ import { useEffect, useRef } from 'react';
  * Context menu for a shop on the map, positioned at the click point and
  * clamped so it never runs off the viewport.
  */
+/** Whether the street already runs past this shop in the given direction. */
+function contHint(current, dir) {
+  const on = current === dir || current === 'both';
+  return on ? 'Currently drawn — click to stop it' : 'Draw the line running on past this shop';
+}
+
 export default function ShopMenu({ station, line, x, y, onClose, onAction }) {
   const ref = useRef(null);
 
@@ -61,6 +67,16 @@ export default function ShopMenu({ station, line, x, y, onClose, onAction }) {
         station.atStreetEnd
           ? 'Currently marked as the end of the street'
           : 'The shop is at the corner or end of the street'
+      )}
+      {item(
+        'continue-left',
+        sideways ? 'Street continues to the left' : 'Street continues upwards',
+        contHint(station.continues, 'left')
+      )}
+      {item(
+        'continue-right',
+        sideways ? 'Street continues to the right' : 'Street continues downwards',
+        contHint(station.continues, 'right')
       )}
       {item('street-between', 'Add a street between 2 shops', 'Starts from this shop')}
 
