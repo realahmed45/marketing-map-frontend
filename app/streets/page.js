@@ -214,8 +214,17 @@ function StreetForm({ initial, palette, onClose, onSaved }) {
             </select>
           </label>
           <label className="field">
-            <span>Lane (row / column)</span>
-            <input type="number" value={form.lane} onChange={(e) => set('lane', e.target.value)} />
+            <span>Position on the page</span>
+            <input
+              type="number"
+              min="0"
+              value={form.lane}
+              onChange={(e) => set('lane', e.target.value)}
+            />
+            <span className="small muted">
+              0 = placed automatically. Higher numbers push a horizontal street further down the
+              page, or a vertical one further right.
+            </span>
           </label>
           <label className="field">
             <span>Status</span>

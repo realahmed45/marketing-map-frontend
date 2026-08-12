@@ -787,25 +787,31 @@ td.actions {
 }
 
 /* ---------- Palette swatches ---------- */
+/* Twelve hue columns, three tone rows. */
 .swatches {
   display: grid;
-  grid-template-columns: repeat(10, 1fr);
-  gap: 5px;
-  max-width: 340px;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 4px;
+  max-width: 420px;
 }
 
 .swatch {
-  height: 26px;
+  height: 30px;
   border: 2px solid transparent;
   border-radius: 5px;
   cursor: pointer;
   padding: 0;
-  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.12);
+  /* An outline on every swatch so white and the pale tones stay visible. */
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.25);
+}
+
+.swatch:hover {
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.25), 0 0 0 2px rgba(37, 99, 235, 0.35);
 }
 
 .swatch.active {
   border-color: var(--text);
-  box-shadow: 0 0 0 2px #fff inset;
+  box-shadow: inset 0 0 0 2px #fff, inset 0 0 0 3px rgba(15, 23, 42, 0.25);
 }
 
 /* ---------- Shop context menu ---------- */
