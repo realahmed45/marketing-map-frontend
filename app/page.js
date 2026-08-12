@@ -10,6 +10,42 @@ import Modal from '@/components/Modal';
 import { useToast } from '@/components/Toast';
 import { get, post, put } from '@/lib/api';
 
+/**
+ * Applies a reorder to the map payload without a round-trip, mirroring what
+ * the server does: the moved shop takes the midpoint between its new
+ * neighbours, or steps one slot past the end it was dropped at.
+ */
+function reorderLocally(map, { shopId, streetId, beforeId, afterId }) {
+  if (!map) return map;
+
+  return {
+    ...map,
+    lines: map.lines.map((line) => {
+      if (String(line._id) !== String(streetId)) return line;
+
+      const orderOf = (id) =>
+        id ? line.stations.find((s) => String(s._id) === String(id))?.order ?? null : null;
+      const before = orderOf(beforeId);
+      const after = orderOf(afterId);
+      if (before === null && after === null) return line;
+
+      const order =
+        before !== null && after !== null
+          ? (before + after) / 2
+          : before !== null
+            ? before + 10
+            : after - 10;
+
+      return {
+        ...line,
+        stations: line.stations
+          .map((s) => (String(s._id) === String(shopId) ? { ...s, order } : s))
+          .sort((a, b) => a.order - b.order),
+      };
+    }),
+  };
+}
+
 export default function MapPage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
@@ -32,13 +68,22 @@ export default function MapPage() {
     setMenu({ station, line, x: e.clientX + 4, y: e.clientY + 4 });
   }
 
-  /** Dropped after dragging a station along its line — renumber it there. */
+  /**
+   * Dropped after dragging a station along its line. The new order is applied
+   * locally first so the shop stays where it was released; the server call
+   * then confirms it. On failure the previous arrangement is restored.
+   */
   async function onStationMove({ shopId, streetId, beforeId, afterId }) {
     if (!beforeId && !afterId) return; // nothing to sit between
+
+    const snapshot = data;
+    setData((cur) => reorderLocally(cur, { shopId, streetId, beforeId, afterId }));
+
     try {
       await put(`/shops/${shopId}/reorder`, { street: streetId, beforeId, afterId });
       load();
     } catch (e) {
+      setData(snapshot);
       notify(e.message, 'error');
     }
   }
@@ -132,7 +177,8 @@ export default function MapPage() {
 
         <p className="muted small" style={{ marginTop: 0 }}>
           Click any shop for its menu — edit it, add a crossing street, mark it as a street ending,
-          or add a shop beside it.
+          or add a shop beside it. Drag a shop along its street to reorder it; press Escape mid-drag
+          to cancel.
         </p>
 
         <MapCanvas

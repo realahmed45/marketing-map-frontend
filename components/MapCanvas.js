@@ -15,6 +15,32 @@ const CONTINUE = 110;
 const RING_5 = 38;
 const RING_15 = 62;
 
+// Travel before a press counts as a drag rather than a click.
+const DRAG_THRESHOLD = 5;
+// How far past the end station the drop marker sits when dropping at an end.
+const GAP_HINT = 64;
+
+/** The gap a dragged shop will drop into, drawn as a caret on the line. */
+function DropMarker({ at }) {
+  const { markAt, cross, horizontal } = at;
+  const x = horizontal ? markAt : cross;
+  const y = horizontal ? cross : markAt;
+  return (
+    <g pointerEvents="none">
+      <circle cx={x} cy={y} r="9" fill="#2563eb" opacity="0.22" />
+      <line
+        x1={horizontal ? x : x - 15}
+        y1={horizontal ? y - 15 : y}
+        x2={horizontal ? x : x + 15}
+        y2={horizontal ? y + 15 : y}
+        stroke="#2563eb"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+    </g>
+  );
+}
+
 /** Outer edge of a station's glyph — labels are placed clear of this. */
 function reach(st) {
   if (st.atStreetEnd) return (st.interchange ? R + 14 : R + 7) + 2;
@@ -41,8 +67,53 @@ export default function MapCanvas({
 }) {
   const layout = useMemo(() => buildLayout(data), [data]);
   const [hovered, setHovered] = useState(null);
+  // `drag` only says a gesture is running; `dragPos` is the painted position,
+  // updated once per frame. The ref holds the live value in between.
   const [drag, setDrag] = useState(null);
+  const [dragPos, setDragPos] = useState(null);
+  const dragRef = useRef(null);
   const svgRef = useRef(null);
+
+  /**
+   * Which two stations the pointer currently sits between, and whether that
+   * is where the shop already is. Computed during the drag so the map can
+   * show the gap opening up before the button is released.
+   */
+  const insertionFor = useCallback(
+    (d, p) => {
+      const line = layout?.lines.find((l) => String(l._id) === d.lineId);
+      if (!line) return null;
+
+      const horizontal = line.orientation === 'h';
+      const pos = horizontal ? p.x : p.y;
+      const axis = (s) => (horizontal ? s.x : s.y);
+
+      const others = line.stations.filter((s) => String(s._id) !== d.shopId);
+      const before = others.filter((s) => axis(s) < pos).pop() || null;
+      const after = others.find((s) => axis(s) >= pos) || null;
+
+      // Where it sits now, so an unchanged drop can be skipped.
+      const idx = line.stations.findIndex((s) => String(s._id) === d.shopId);
+      const curBefore = idx > 0 ? line.stations[idx - 1] : null;
+      const curAfter = idx < line.stations.length - 1 ? line.stations[idx + 1] : null;
+
+      const same =
+        String(before?._id || '') === String(curBefore?._id || '') &&
+        String(after?._id || '') === String(curAfter?._id || '');
+
+      return {
+        beforeId: before ? String(before._id) : null,
+        afterId: after ? String(after._id) : null,
+        // Midpoint of the gap, for the drop marker.
+        markAt: before && after ? (axis(before) + axis(after)) / 2 : before ? axis(before) + GAP_HINT : after ? axis(after) - GAP_HINT : pos,
+        lineId: String(line._id),
+        horizontal,
+        cross: horizontal ? line.axis : line.axis,
+        unchanged: same,
+      };
+    },
+    [layout]
+  );
 
   /** Pointer position in SVG user units, which the viewBox may have scaled. */
   const toSvg = useCallback((evt) => {
@@ -56,44 +127,82 @@ export default function MapCanvas({
     };
   }, []);
 
-  // Dragging is tracked on the window so the pointer can leave the circle
-  // mid-gesture without the drop being lost.
+  /**
+   * Dragging is tracked on the window so the pointer can leave the circle
+   * mid-gesture without the drop being lost.
+   *
+   * Pointer events fire far faster than React can usefully re-render, so the
+   * live position is kept in a ref and painted once per animation frame. Only
+   * the drop commits to state.
+   */
   useEffect(() => {
     if (!drag) return;
 
-    const move = (e) => setDrag((d) => (d ? { ...d, ...toSvg(e), moved: true } : d));
+    let frame = null;
 
-    const up = () => {
-      setDrag((d) => {
-        if (!d?.moved || !onMove) return null;
+    const paint = () => {
+      frame = null;
+      const d = dragRef.current;
+      if (d) setDragPos({ x: d.x, y: d.y, moved: d.moved, insertAt: d.insertAt });
+    };
 
-        // Work out where along the line it was dropped, and hand back the two
-        // shops it landed between so the caller can renumber it.
-        const line = layout?.lines.find((l) => String(l._id) === d.lineId);
-        if (line) {
-          const horizontal = line.orientation === 'h';
-          const pos = horizontal ? d.x : d.y;
-          const others = line.stations.filter((s) => String(s._id) !== d.shopId);
-          const before = others.filter((s) => (horizontal ? s.x : s.y) < pos).pop() || null;
-          const after = others.find((s) => (horizontal ? s.x : s.y) >= pos) || null;
-          onMove({
-            shopId: d.shopId,
-            streetId: d.lineId,
-            beforeId: before ? String(before._id) : null,
-            afterId: after ? String(after._id) : null,
-          });
-        }
-        return null;
+    const move = (e) => {
+      const d = dragRef.current;
+      if (!d) return;
+      const p = toSvg(e);
+
+      // A few pixels of travel before it counts as a drag, so a slightly
+      // shaky click still opens the menu instead of nudging the shop.
+      if (!d.moved) {
+        const far = Math.hypot(p.x - d.startX, p.y - d.startY) > DRAG_THRESHOLD;
+        if (!far) return;
+        d.moved = true;
+      }
+
+      d.x = p.x;
+      d.y = p.y;
+      d.insertAt = insertionFor(d, p);
+      if (frame === null) frame = requestAnimationFrame(paint);
+    };
+
+    const finish = (commit) => {
+      if (frame !== null) cancelAnimationFrame(frame);
+      const d = dragRef.current;
+      dragRef.current = null;
+      setDrag(null);
+      setDragPos(null);
+      if (!commit || !d?.moved || !onMove) return;
+
+      const target = d.insertAt;
+      if (!target || (!target.beforeId && !target.afterId)) return;
+      // No-op drops are common — don't ask the server to renumber nothing.
+      if (target.beforeId === d.shopId || target.afterId === d.shopId) return;
+      if (target.unchanged) return;
+
+      onMove({
+        shopId: d.shopId,
+        streetId: d.lineId,
+        beforeId: target.beforeId,
+        afterId: target.afterId,
       });
     };
 
+    const up = () => finish(true);
+    const cancel = () => finish(false);
+    const onKey = (e) => e.key === 'Escape' && finish(false);
+
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', cancel);
+    window.addEventListener('keydown', onKey);
     return () => {
+      if (frame !== null) cancelAnimationFrame(frame);
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancel);
+      window.removeEventListener('keydown', onKey);
     };
-  }, [drag, onMove, toSvg, layout]);
+  }, [drag, onMove, toSvg, insertionFor]);
 
   if (!layout) return <div className="loading">Loading map…</div>;
   if (layout.lines.length === 0)
@@ -199,6 +308,11 @@ export default function MapCanvas({
           );
         })}
 
+        {/* Where the shop will land, shown while the drag is in flight. */}
+        {dragPos?.moved && dragPos.insertAt && !dragPos.insertAt.unchanged && (
+          <DropMarker at={dragPos.insertAt} />
+        )}
+
         {layout.lines.map((line) => {
           const dimmed = pickableStreet && String(pickableStreet) !== String(line._id);
           return line.stations.map((st) => {
@@ -208,40 +322,47 @@ export default function MapCanvas({
             const isSel = String(selectedId) === String(st._id);
             const clickable = !dimmed && (pickMode || onSelect);
             const draggable = Boolean(onMove) && !dimmed && !pickMode;
-            const isDragging = drag?.shopId === String(st._id) && drag.moved;
+            const isDragging = drag?.shopId === String(st._id) && dragPos?.moved;
             const showRings =
               !pickMode && (isSel || String(hovered) === String(st._id) || isDragging);
 
             // While dragging, the glyph follows the pointer along the line
             // only — a station cannot leave its own street by dragging.
             const horizontal = line.orientation === 'h';
-            const cx = isDragging ? (horizontal ? drag.x : st.x) : st.x;
-            const cy = isDragging ? (horizontal ? st.y : drag.y) : st.y;
+            const cx = isDragging ? (horizontal ? dragPos.x : st.x) : st.x;
+            const cy = isDragging ? (horizontal ? st.y : dragPos.y) : st.y;
 
             return (
               <g
                 key={`${line._id}-${st._id}`}
                 onClick={(e) => {
                   // A drag that moved should not also register as a click.
-                  if (drag?.moved) return;
+                  if (dragRef.current?.moved || dragPos?.moved) return;
                   if (clickable) onSelect?.(st, line, e);
                 }}
                 onPointerDown={(e) => {
                   if (!draggable || e.button !== 0) return;
+                  e.preventDefault();
                   const p = toSvg(e);
-                  setDrag({
+                  dragRef.current = {
                     shopId: String(st._id),
                     lineId: String(line._id),
-                    from: st.order,
-                    ...p,
+                    startX: p.x,
+                    startY: p.y,
+                    x: p.x,
+                    y: p.y,
                     moved: false,
-                  });
+                    insertAt: null,
+                  };
+                  setDrag({ shopId: String(st._id), lineId: String(line._id) });
                 }}
-                onPointerEnter={() => setHovered(String(st._id))}
+                onPointerEnter={() => !dragRef.current && setHovered(String(st._id))}
                 onPointerLeave={() => setHovered((h) => (h === String(st._id) ? null : h))}
                 style={{
                   cursor: draggable ? (isDragging ? 'grabbing' : 'grab') : clickable ? 'pointer' : 'default',
                   opacity: dimmed ? 0.3 : 1,
+                  // The dragged glyph rides above the rest of the map.
+                  filter: isDragging ? 'drop-shadow(0 4px 10px rgba(15,23,42,0.35))' : undefined,
                 }}
               >
                 {isPicked && (
