@@ -47,16 +47,21 @@ export default function ShopMenu({ station, line, x, y, onClose, onAction }) {
       {item('edit', 'Edit shop')}
 
       <div className="shop-menu-sep">Character</div>
-      {item('cross-here', 'Add a crossing street here', 'Pick distance and side')}
+
+      <div className="shop-menu-group">Street crossing</div>
+      {item('cross-here', 'Add a crossing street here', 'Choose the distance and side')}
+      {item('cross-on', 'At the crossing', '100% of the share')}
+      {item('cross-close', '5 metres away', '70% of the share')}
+      {item('cross-near', '15 metres away', '20% of the share')}
+
+      <div className="shop-menu-group">Shop related</div>
       {item(
         'toggle-end',
-        station.atStreetEnd ? 'Not at the street end' : 'Mark as street ending',
+        station.atStreetEnd ? 'Shop not at the street ending' : 'Add street ending',
         station.atStreetEnd
           ? 'Currently marked as the end of the street'
-          : 'The shop terminates the street'
+          : 'The shop is at the corner or end of the street'
       )}
-
-      <div className="shop-menu-sep">Streets</div>
       {item('street-between', 'Add a street between 2 shops', 'Starts from this shop')}
 
       <div className="shop-menu-sep">Add a shop next to this one</div>

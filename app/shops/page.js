@@ -43,6 +43,7 @@ function toFormShape(s) {
       street: l.street?._id || l.street,
       order: l.order,
       proximity: l.proximity,
+      side: l.side || 'unset',
       between: [],
     })),
   };
@@ -198,6 +199,7 @@ function ShopsInner() {
                                 title={PROX_LABEL[l.proximity]}
                               >
                                 {l.street?.name} · {PROX_PCT[l.proximity]}%
+                                {l.side && l.side !== 'unset' ? ` · ${l.side}` : ''}
                               </span>
                             ))}
                           </div>
@@ -254,7 +256,10 @@ function ShopForm({ initial, streets, onClose, onSaved }) {
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   function addLink() {
-    set('streets', [...form.streets, { street: '', proximity: 'on', between: [], order: '' }]);
+    set('streets', [
+      ...form.streets,
+      { street: '', proximity: 'on', side: 'unset', between: [], order: '' },
+    ]);
   }
   function updateLink(i, patch) {
     set(
@@ -420,9 +425,20 @@ function ShopForm({ initial, streets, onClose, onSaved }) {
                       value={link.proximity}
                       onChange={(e) => updateLink(i, { proximity: e.target.value })}
                     >
-                      <option value="on">On the street — 100%</option>
-                      <option value="close">Close by, ~5m — 70%</option>
-                      <option value="near">Nearby, ~15m — 20%</option>
+                      <option value="on">At the crossing — 100%</option>
+                      <option value="close">5 metres away — 70%</option>
+                      <option value="near">15 metres away — 20%</option>
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>Which side of the street</span>
+                    <select
+                      value={link.side || 'unset'}
+                      onChange={(e) => updateLink(i, { side: e.target.value })}
+                    >
+                      <option value="unset">Not specified</option>
+                      <option value="left">Left side</option>
+                      <option value="right">Right side</option>
                     </select>
                   </label>
                 </div>

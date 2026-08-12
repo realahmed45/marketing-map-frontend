@@ -38,9 +38,15 @@ export default function MapPage() {
 
     if (key === 'view') return setSelected(station);
     if (key === 'edit') return (window.location.href = `/shops?edit=${station._id}`);
-    if (key === 'cross-here') return setDialog({ kind: 'crossing', station, line });
     if (key === 'street-between') return setDialog({ kind: 'street-between', station });
-    if (key.startsWith('add-')) return setDialog({ kind: 'adjacent', station, line, side: key.slice(4) });
+    if (key.startsWith('add-'))
+      return setDialog({ kind: 'adjacent', station, line, side: key.slice(4) });
+
+    // The three distance shortcuts open the same dialog with step 2 prefilled.
+    if (key.startsWith('cross-')) {
+      const preset = { 'cross-on': 'on', 'cross-close': 'close', 'cross-near': 'near' }[key];
+      return setDialog({ kind: 'crossing', station, line, proximity: preset || 'on' });
+    }
 
     if (key === 'toggle-end') {
       try {
@@ -225,6 +231,7 @@ export default function MapPage() {
         <CrossingDialog
           station={dialog.station}
           streets={data.lines}
+          initialProximity={dialog.proximity}
           onClose={() => setDialog(null)}
           onSaved={(m) => {
             setDialog(null);
@@ -268,7 +275,7 @@ export default function MapPage() {
  * Adds a crossing street to a shop, in the two steps the spec calls for:
  * name the street, then say how far away it is and which side the shop is on.
  */
-function CrossingDialog({ station, streets, onClose, onSaved }) {
+function CrossingDialog({ station, streets, initialProximity = 'on', onClose, onSaved }) {
   const alreadyOn = new Set(
     streets
       .filter((l) => l.stations.some((s) => String(s._id) === String(station._id)))
@@ -279,7 +286,7 @@ function CrossingDialog({ station, streets, onClose, onSaved }) {
   const [mode, setMode] = useState(available.length ? 'existing' : 'new');
   const [street, setStreet] = useState(available[0]?._id || '');
   const [name, setName] = useState('');
-  const [proximity, setProximity] = useState('on');
+  const [proximity, setProximity] = useState(initialProximity);
   const [side, setSide] = useState('unset');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
