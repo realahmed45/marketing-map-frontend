@@ -743,47 +743,27 @@ td.actions {
   padding: 8px;
 }
 
+/* Each key is drawn as a small SVG so it matches the map exactly. */
 .map-legend {
-  margin-top: 12px;
-  gap: 18px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 8px 18px;
   font-size: 12px;
   color: var(--muted);
 }
 
-.legend-dot {
-  width: 13px;
-  height: 13px;
-  border-radius: 50%;
-  background: #fff;
-  border: 3px solid var(--muted);
-  display: inline-block;
+.legend-key {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-key svg {
   flex-shrink: 0;
-}
-
-.legend-dot.big {
-  width: 17px;
-  height: 17px;
-  border-width: 4px;
-}
-
-.legend-dot.dashed {
-  border-style: dashed;
-}
-
-.legend-dot.big {
-  border-width: 9px;
-  width: 26px;
-  height: 26px;
-}
-
-.legend-square {
-  width: 15px;
-  height: 15px;
-  border-radius: 3px;
-  background: #fff;
-  border: 2px solid var(--muted);
-  display: inline-block;
-  flex-shrink: 0;
+  color: var(--muted);
 }
 
 /* ---------- Palette swatches ---------- */

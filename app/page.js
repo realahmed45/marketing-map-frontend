@@ -46,6 +46,18 @@ function reorderLocally(map, { shopId, streetId, beforeId, afterId }) {
   };
 }
 
+/** One legend entry: a small SVG drawn the same way the map draws it. */
+function Key({ label, children }) {
+  return (
+    <span className="legend-key">
+      <svg width="36" height="24" viewBox="0 0 36 24" aria-hidden="true">
+        {children}
+      </svg>
+      {label}
+    </span>
+  );
+}
+
 export default function MapPage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
@@ -188,21 +200,83 @@ export default function MapPage() {
           onMove={onStationMove}
         />
 
-        <div className="row map-legend">
-          <span className="row" style={{ gap: 6 }}>
-            <span className="legend-dot" /> Shop
-          </span>
-          <span className="row" style={{ gap: 6 }}>
-            <span className="legend-dot big" /> Corner — joins two streets
-          </span>
-          <span className="row" style={{ gap: 6 }}>
-            <span className="legend-dot dashed" /> Not at the crossing
-          </span>
-          <span className="row" style={{ gap: 6 }}>
-            <span className="legend-square" /> Street ending
-          </span>
-          <span className="row" style={{ gap: 6 }}>
-            <strong style={{ color: '#7c3aed' }}>2</strong> Streets a corner shop joins
+        <div className="map-legend">
+          <Key label="Shop">
+            <circle cx="17" cy="12" r="7" fill="#fff" stroke="#64748b" strokeWidth="3" />
+          </Key>
+
+          <Key label="Corner — joins two streets">
+            <circle cx="17" cy="12" r="7" fill="#fff" stroke="#64748b" strokeWidth="7" />
+          </Key>
+
+          <Key label="Not at the crossing — 5 m or 15 m away">
+            <circle cx="17" cy="12" r="7" fill="#fff" stroke="#64748b" strokeWidth="3" />
+            <circle
+              cx="17"
+              cy="12"
+              r="7"
+              fill="none"
+              stroke="#64748b"
+              strokeWidth="1.5"
+              strokeDasharray="2 2"
+            />
+          </Key>
+
+          <Key label="Street ending — the street stops here">
+            <rect
+              x="7"
+              y="2"
+              width="20"
+              height="20"
+              rx="3"
+              fill="none"
+              stroke="#64748b"
+              strokeWidth="2"
+            />
+            <circle cx="17" cy="12" r="7" fill="#fff" stroke="#64748b" strokeWidth="3" />
+          </Key>
+
+          <Key label="Street continues past this shop">
+            <circle cx="9" cy="12" r="6" fill="#fff" stroke="#64748b" strokeWidth="3" />
+            <line
+              x1="17"
+              y1="12"
+              x2="34"
+              y2="12"
+              stroke="#64748b"
+              strokeWidth="4"
+              strokeLinecap="round"
+              strokeDasharray="5 4"
+              opacity="0.7"
+            />
+          </Key>
+
+          <Key label="Reach rings — 5 m and 15 m, shown on hover">
+            <circle cx="17" cy="12" r="4" fill="#fff" stroke="#64748b" strokeWidth="2.5" />
+            <circle
+              cx="17"
+              cy="12"
+              r="8"
+              fill="none"
+              stroke="#64748b"
+              strokeWidth="1.2"
+              strokeDasharray="3 3"
+            />
+            <circle
+              cx="17"
+              cy="12"
+              r="11.5"
+              fill="none"
+              stroke="#64748b"
+              strokeWidth="1.2"
+              strokeDasharray="2 4"
+              opacity="0.7"
+            />
+          </Key>
+
+          <span className="legend-key">
+            <strong style={{ color: '#7c3aed', width: 34, textAlign: 'center' }}>2</strong>
+            Streets a corner shop joins
           </span>
         </div>
       </div>
