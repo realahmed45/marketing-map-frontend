@@ -202,7 +202,7 @@ export default function MapPage() {
             <span className="legend-square" /> Street ending
           </span>
           <span className="row" style={{ gap: 6 }}>
-            <strong style={{ color: '#7c3aed' }}>2</strong> Streets it is linked to
+            <strong style={{ color: '#7c3aed' }}>2</strong> Streets a corner shop joins
           </span>
         </div>
       </div>

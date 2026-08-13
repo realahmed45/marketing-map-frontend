@@ -479,17 +479,21 @@ export default function MapCanvas({
                 >
                   {st.code ? st.name : st.banner === 'none' ? 'no banner' : st.banner}
                 </text>
-                {/* How many streets this shop is linked to. */}
-                <text
-                  x={cx}
-                  y={cy + reach(st) + 29}
-                  textAnchor="middle"
-                  fontSize="13"
-                  fontWeight="700"
-                  fill="#7c3aed"
-                >
-                  {st.streetCount}
-                </text>
+                {/* How many streets this shop is linked to. Only worth
+                    showing on corners — a "1" under every other shop is
+                    noise, since one street is the norm. */}
+                {st.streetCount > 1 && (
+                  <text
+                    x={cx}
+                    y={cy + reach(st) + 29}
+                    textAnchor="middle"
+                    fontSize="13"
+                    fontWeight="700"
+                    fill="#7c3aed"
+                  >
+                    {st.streetCount}
+                  </text>
+                )}
               </g>
             );
           });
